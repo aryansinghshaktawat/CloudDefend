@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>CloudDefend Security Dashboard</title>
+
+    <style>
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            background: #0b1120;
+            color: #e5e7eb;
+        }
+
+        header {
+            padding: 24px 40px;
+            border-bottom: 1px solid #1f2937;
+        }
+
+        h1 {
+            margin: 0;
+        }
+
+        .subtitle {
+            color: #9ca3af;
+            margin-top: 6px;
+        }
+
+        .container {
+            padding: 30px 40px;
+        }
+
+        .cards {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 20px;
+        }
+
+        .card {
+            background: #111827;
+            border: 1px solid #1f2937;
+            border-radius: 12px;
+            padding: 22px;
+        }
+
+        .label {
+            color: #9ca3af;
+            font-size: 14px;
+        }
+
+        .value {
+            font-size: 32px;
+            font-weight: bold;
+            margin-top: 10px;
+        }
+
+        .status {
+            color: #22c55e;
+        }
+
+        table {
+            width: 100%;
+            margin-top: 30px;
+            border-collapse: collapse;
+            background: #111827;
+            border-radius: 12px;
+            overflow: hidden;
+        }
+
+        th, td {
+            padding: 16px;
+            text-align: left;
+            border-bottom: 1px solid #1f2937;
+        }
+
+        th {
+            color: #9ca3af;
+            font-size: 13px;
+        }
+
+        .high {
+            color: #ef4444;
+            font-weight: bold;
+        }
+
+        button {
+            margin-top: 25px;
+            padding: 10px 18px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+
+<body>
+
+<header>
+    <h1>CloudDefend</h1>
+    <div class="subtitle">
+        Cloud Security Monitoring & Threat Detection Platform
+    </div>
+</header>
+
+<div class="container">
+
+    <div class="cards">
+
+        <div class="card">
+            <div class="label">System Status</div>
+            <div class="value status" id="status">Checking...</div>
+        </div>
+
+        <div class="card">
+            <div class="label">Total Alerts</div>
+            <div class="value" id="total">0</div>
+        </div>
+
+        <div class="card">
+            <div class="label">High Severity</div>
+            <div class="value high" id="high">0</div>
+        </div>
+
+    </div>
+
+    <button onclick="loadData()">Refresh</button>
+
+    <table>
+        <thead>
+            <tr>
+                <th>Severity</th>
+                <th>Rule</th>
+                <th>Source IP</th>
+                <th>Events</th>
+                <th>Window</th>
+            </tr>
+        </thead>
+
+        <tbody id="alerts"></tbody>
+    </table>
+
+</div>
+
+<script>
+
+async function loadData() {
+
+    try {
+
+        const statsResponse =
+            await fetch("http://20.196.128.37:8000/stats");
+
+        const stats =
+            await statsResponse.json();
+
+        document.getElementById("total").textContent =
+            stats.total_alerts;
+
+        document.getElementById("high").textContent =
+            stats.high_severity;
+
+        document.getElementById("status").textContent =
+            "OPERATIONAL";
+
+
+        const alertsResponse =
+            await fetch("http://20.196.128.37:8000/alerts");
+
+        const alerts =
+            await alertsResponse.json();
+
+        const table =
+            document.getElementById("alerts");
+
+        table.innerHTML = "";
+
+        alerts.forEach(alert => {
+
+            const row = document.createElement("tr");
+
+            row.innerHTML = `
+                <td class="high">${alert.severity}</td>
+                <td>${alert.rule}</td>
+                <td>${alert.source_ip}</td>
+                <td>${alert.event_count}</td>
+                <td>${alert.window_minutes} min</td>
+            `;
+
+            table.appendChild(row);
+        });
+
+    } catch (error) {
+
+        document.getElementById("status").textContent =
+            "OFFLINE";
+
+        console.error(error);
+    }
+}
+
+loadData();
+
+</script>
+
+</body>
+</html>

@@ -1,0 +1,24 @@
+[
+  {
+    "rule": "SSH_BRUTE_FORCE",
+    "severity": "HIGH",
+    "source_ip": "5.172.178.253",
+    "event_count": 6,
+    "window_minutes": 10,
+    "first_event": "2026-10-05T18:44:33+00:00",
+    "last_event": "2026-10-05T18:52:38+00:00",
+    "id": 1,
+    "detected_at": "2026-10-05T19:30:12.161071+00:00"
+  },
+  {
+    "rule": "SSH_BRUTE_FORCE",
+    "severity": "HIGH",
+    "source_ip": "154.18.197.29",
+    "event_count": 13,
+    "window_minutes": 10,
+    "first_event": "2026-10-05T18:46:35+00:00",
+    "last_event": "2026-10-05T18:56:26+00:00",
+    "id": 1,
+    "detected_at": "2026-10-05T19:30:12.161264+00:00"
+  }
+]
