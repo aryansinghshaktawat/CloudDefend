@@ -1,246 +1,79 @@
-```markdown
+
 # CloudDefend
 
-CloudDefend is a lightweight **cloud security monitoring and threat detection platform** deployed on a Microsoft Azure Virtual Machine.
+> Cloud Security Monitoring & Threat Detection Platform
 
-It monitors SSH authentication activity, identifies suspicious authentication behavior, detects SSH brute-force attacks using rule-based detection, generates security alerts, and exposes the results through a FastAPI REST API and web-based security dashboard.
+CloudDefend is a lightweight security monitoring platform designed to detect and visualize suspicious SSH authentication activity on a Linux cloud server.
 
----
-
-## Overview
-
-Publicly exposed cloud servers are continuously scanned by automated systems attempting to discover valid usernames and gain SSH access.
-
-CloudDefend monitors these SSH authentication events and converts raw system logs into structured security events.
-
-The current detection pipeline is:
-
-```text
-Azure Virtual Machine
-        │
-        ▼
-   SSH / sshd logs
-        │
-        ▼
- SSH Log Detector
-        │
-        ▼
- Structured Security Events
-        │
-        ▼
- Detection Rules
-        │
-        ▼
- SSH Brute-Force Detection
-        │
-        ▼
- Security Alerts
-        │
-        ├───────────────┐
-        ▼               ▼
-   alerts.json       FastAPI
-                         │
-                         ▼
-                  Security Dashboard
-```
+It analyzes SSH logs, identifies suspicious authentication events, applies detection rules for brute-force behavior, and exposes the results through a REST API and web dashboard.
 
 ---
 
 ## Features
 
 - SSH authentication log monitoring
-- Failed authentication detection
-- Invalid-user detection
+- Failed SSH authentication detection
+- Invalid SSH user detection
 - Source IP tracking
 - SSH brute-force detection
 - Time-window based detection rules
-- Severity-based security alerts
-- JSON alert storage
-- REST API
-- Security monitoring dashboard
+- Severity classification
+- REST API for security alerts
+- Web-based security dashboard
+- Persistent alert storage
 - Linux systemd service
-- Deployment on Microsoft Azure VM
-
----
-
-## Detection Logic
-
-CloudDefend currently uses a rule-based approach to identify SSH brute-force activity.
-
-An alert is generated when repeated suspicious SSH authentication events from the same source IP occur within a configured time window.
-
-Example:
-
-```json
-{
-  "rule": "SSH_BRUTE_FORCE",
-  "severity": "HIGH",
-  "source_ip": "154.18.197.29",
-  "event_count": 13,
-  "window_minutes": 10
-}
-```
-
-The system can identify events such as:
-
-```text
-failed_auth
-invalid_user
-```
-
-Example SSH activity observed during testing:
-
-```text
-root authentication attempts
-invalid user ubuntu
-repeated authentication attempts
-```
-
-These events are converted into structured records containing:
-
-- Timestamp
-- Source IP
-- Username
-- Event type
-
----
-
-## Example Detection Result
-
-During testing, CloudDefend detected repeated SSH activity and generated alerts such as:
-
-```text
-Alerts generated: 2
-
-SSH_BRUTE_FORCE
-Severity: HIGH
-Source: 5.172.178.253
-Events: 6
-Window: 10 minutes
-
-SSH_BRUTE_FORCE
-Severity: HIGH
-Source: 154.18.197.29
-Events: 13
-Window: 10 minutes
-```
+- Azure Virtual Machine deployment
 
 ---
 
 ## Architecture
 
-### 1. Log Collection
-
-CloudDefend reads SSH authentication events from the Linux system journal.
-
 ```text
-journalctl → SSH Detector
-```
-
-### 2. Event Parsing
-
-The SSH detector converts raw log entries into structured security events.
-
-Example:
-
-```json
-{
-  "timestamp": "2026-10-05T19:02:19+00:00",
-  "ip": "154.18.197.29",
-  "username": "root",
-  "type": "failed_auth"
-}
-```
-
-### 3. Detection Engine
-
-The detection rules analyze events within a configurable time window.
-
-The current rule detects repeated SSH authentication activity from the same source IP.
-
-### 4. Alert Generation
-
-Detected threats are converted into structured alerts containing:
-
-- Detection rule
-- Severity
-- Source IP
-- Event count
-- Detection window
-- First event
-- Last event
-- Detection timestamp
-
-### 5. REST API
-
-FastAPI exposes the monitoring data through API endpoints.
-
-### 6. Dashboard
-
-A lightweight HTML/JavaScript dashboard displays:
-
-- System status
-- Total alerts
-- High-severity alerts
-- Source IP
-- Detection rule
-- Event count
-- Detection window
-
----
-
-## API
-
-### Health Check
-
-```http
-GET /
-```
-
-Example response:
-
-```json
-{
-  "project": "CloudDefend",
-  "status": "operational"
-}
-```
-
-### Security Alerts
-
-```http
-GET /alerts
-```
-
-Returns detected security alerts.
-
-Example:
-
-```json
-[
-  {
-    "rule": "SSH_BRUTE_FORCE",
-    "severity": "HIGH",
-    "source_ip": "154.18.197.29",
-    "event_count": 13,
-    "window_minutes": 10
-  }
-]
-```
-
-### Statistics
-
-```http
-GET /stats
-```
-
-Example:
-
-```json
-{
-  "total_alerts": 2,
-  "high_severity": 2
-}
+                    ┌─────────────────────┐
+                    │    Linux SSH Logs   │
+                    │     journald        │
+                    └──────────┬──────────┘
+                               │
+                               ▼
+                    ┌─────────────────────┐
+                    │    SSH Detector     │
+                    │  Log Collection &   │
+                    │      Parsing        │
+                    └──────────┬──────────┘
+                               │
+                               ▼
+                    ┌─────────────────────┐
+                    │   Detection Rules   │
+                    │                     │
+                    │ SSH_BRUTE_FORCE     │
+                    │ Time-window checks  │
+                    └──────────┬──────────┘
+                               │
+                               ▼
+                    ┌─────────────────────┐
+                    │   Alert Generation  │
+                    │                     │
+                    │ Severity            │
+                    │ Source IP           │
+                    │ Event Count         │
+                    └──────────┬──────────┘
+                               │
+                 ┌─────────────┴─────────────┐
+                 ▼                           ▼
+       ┌──────────────────┐        ┌──────────────────┐
+       │   FastAPI REST   │        │  Alert Storage   │
+       │       API        │        │   alerts.json    │
+       └────────┬─────────┘        └──────────────────┘
+                │
+                ▼
+       ┌──────────────────┐
+       │ Web Dashboard    │
+       │                  │
+       │ System Status    │
+       │ Total Alerts     │
+       │ High Severity    │
+       │ Source IPs       │
+       └──────────────────┘
 ```
 
 ---
@@ -266,42 +99,251 @@ CloudDefend/
 └── .gitignore
 ```
 
-### Components
+---
 
-| File | Purpose |
-|---|---|
-| `agent/ssh_detector.py` | Collects and parses SSH security events |
-| `rules/ssh_rules.py` | Contains SSH threat-detection rules |
-| `monitor.py` | Monitoring/detection execution |
-| `api.py` | FastAPI REST API |
-| `dashboard.html` | Web security dashboard |
-| `logs/alerts.json` | Stores generated alerts |
+## Detection Pipeline
+
+CloudDefend follows this security monitoring workflow:
+
+```text
+SSH Logs
+   │
+   ▼
+Log Collection
+   │
+   ▼
+Event Parsing
+   │
+   ▼
+Event Normalization
+   │
+   ▼
+Detection Rules
+   │
+   ▼
+Threat Detection
+   │
+   ▼
+Alert Generation
+   │
+   ├── Source IP
+   ├── Username
+   ├── Event Count
+   ├── Detection Window
+   └── Severity
+   │
+   ▼
+REST API
+   │
+   ▼
+Security Dashboard
+```
 
 ---
 
-## Azure Deployment
+## Components
 
-CloudDefend was deployed on a **Microsoft Azure Virtual Machine** running Linux.
+### SSH Detector
 
-The application runs using Uvicorn:
+`agent/ssh_detector.py`
+
+The SSH detector collects SSH authentication events from the Linux system logs and converts them into structured security events.
+
+Example:
+
+```json
+{
+  "timestamp": "2026-10-05T18:44:33+00:00",
+  "ip": "5.172.178.253",
+  "username": "ubuntu",
+  "type": "invalid_user"
+}
+```
+
+Supported event types include:
+
+- `failed_auth`
+- `invalid_user`
+
+---
+
+### Detection Rules
+
+`rules/ssh_rules.py`
+
+The detection engine analyzes normalized SSH events and applies security rules.
+
+The current detection rule is:
+
+```text
+SSH_BRUTE_FORCE
+```
+
+The rule identifies repeated SSH authentication activity from the same source IP within a configured time window.
+
+Example alert:
+
+```json
+{
+  "rule": "SSH_BRUTE_FORCE",
+  "severity": "HIGH",
+  "source_ip": "154.18.197.29",
+  "event_count": 13,
+  "window_minutes": 10
+}
+```
+
+---
+
+### Alert Storage
+
+Detected alerts are stored in:
+
+```text
+logs/alerts.json
+```
+
+This provides persistent storage for the generated security alerts.
+
+---
+
+### FastAPI Backend
+
+`api.py`
+
+CloudDefend provides a REST API using FastAPI.
+
+### Available Endpoints
+
+| Endpoint | Description |
+|---|---|
+| `/` | Security dashboard |
+| `/alerts` | Returns detected alerts |
+| `/stats` | Returns alert statistics |
+
+Example:
 
 ```bash
+curl http://127.0.0.1:8000/stats
+```
+
+Response:
+
+```json
+{
+  "total_alerts": 2,
+  "high_severity": 2
+}
+```
+
+Get alerts:
+
+```bash
+curl http://127.0.0.1:8000/alerts
+```
+
+---
+
+## Security Dashboard
+
+The CloudDefend dashboard provides a simple security monitoring interface.
+
+It displays:
+
+- System status
+- Total alerts
+- High-severity alerts
+- Detection rule
+- Source IP
+- Event count
+- Detection window
+
+The dashboard communicates with the FastAPI backend to retrieve the latest security information.
+
+---
+
+## Example Detection
+
+During testing, the system detected repeated SSH authentication attempts against the publicly accessible cloud VM.
+
+Example alerts included:
+
+```text
+Rule: SSH_BRUTE_FORCE
+Severity: HIGH
+Source IP: 5.172.178.253
+Events: 6
+Window: 10 minutes
+```
+
+and:
+
+```text
+Rule: SSH_BRUTE_FORCE
+Severity: HIGH
+Source IP: 154.18.197.29
+Events: 13
+Window: 10 minutes
+```
+
+The system successfully converted raw SSH authentication logs into structured security alerts.
+
+---
+
+## Technology Stack
+
+| Technology | Purpose |
+|---|---|
+| Python 3 | Core application |
+| FastAPI | REST API |
+| Uvicorn | ASGI server |
+| OpenSSH | SSH service |
+| systemd-journald | Log collection |
+| journalctl | Log retrieval |
+| HTML | Dashboard structure |
+| CSS | Dashboard styling |
+| JavaScript | Dashboard functionality |
+| JSON | Alert storage |
+| systemd | Service management |
+| Microsoft Azure | Cloud deployment |
+
+---
+
+## Deployment
+
+CloudDefend was deployed on an Ubuntu-based Microsoft Azure Virtual Machine.
+
+### Install Dependencies
+
+```bash
+sudo apt update
+sudo apt install python3 python3-pip -y
+```
+
+Install Python dependencies:
+
+```bash
+pip3 install fastapi uvicorn
+```
+
+### Start the API
+
+```bash
+cd ~/clouddefend
 python3 -m uvicorn api:app --host 0.0.0.0 --port 8000
 ```
 
-The application was configured as a Linux `systemd` service:
+The API listens on:
 
 ```text
-clouddefend.service
+0.0.0.0:8000
 ```
 
-The service is configured to start automatically with the system.
+---
 
-Check service status:
+## Systemd Deployment
 
-```bash
-sudo systemctl status clouddefend
-```
+CloudDefend can run as a Linux systemd service.
 
 Start the service:
 
@@ -309,44 +351,48 @@ Start the service:
 sudo systemctl start clouddefend
 ```
 
-Stop the service:
+Enable automatic startup:
 
 ```bash
-sudo systemctl stop clouddefend
+sudo systemctl enable clouddefend
 ```
 
-Restart the service:
+Check service status:
 
 ```bash
-sudo systemctl restart clouddefend
+sudo systemctl status clouddefend
 ```
+
+Expected status:
+
+```text
+Active: active (running)
+```
+
+This allows CloudDefend to continue running independently of the SSH terminal session and automatically start when the VM boots.
 
 ---
 
-## Security Configuration
+## Firewall Configuration
 
-The Azure VM was configured with basic SSH hardening.
+The Azure VM was configured with UFW.
 
-### Firewall
-
-UFW was enabled with incoming traffic denied by default.
-
-SSH access was explicitly allowed:
-
-```text
-22/tcp ALLOW IN
-```
-
-Configuration:
+Current firewall policy:
 
 ```text
 Default: deny (incoming)
 Default: allow (outgoing)
 ```
 
-### SSH Hardening
+SSH access:
 
-The SSH configuration was verified to use:
+```text
+22/tcp ALLOW IN
+```
+
+SSH was configured to use key-based authentication.
+
+Relevant SSH configuration:
 
 ```text
 PermitRootLogin no
@@ -354,168 +400,132 @@ PasswordAuthentication no
 PubkeyAuthentication yes
 ```
 
-This prevents direct root SSH login and password-based SSH authentication while allowing public-key authentication.
+This prevents direct root login and password-based SSH authentication.
 
 ---
 
-## Technologies
+## Security Monitoring Example
 
-### Cloud
+During testing, the VM received repeated automated SSH authentication attempts.
 
-- Microsoft Azure
-- Azure Virtual Machine
-
-### Backend
-
-- Python
-- FastAPI
-- Uvicorn
-
-### Security
-
-- OpenSSH
-- Linux system logs
-- SSH authentication monitoring
-- Rule-based threat detection
-- UFW
-
-### Frontend
-
-- HTML
-- CSS
-- JavaScript
-
-### Infrastructure
-
-- Linux
-- systemd
-- Git
-- GitHub
-
----
-
-## Running Locally
-
-Clone the repository:
-
-```bash
-git clone https://github.com/aryansinghshaktawat/CloudDefend.git
-cd CloudDefend
-```
-
-Install the required Python dependencies:
-
-```bash
-pip install fastapi uvicorn
-```
-
-Start the API:
-
-```bash
-python3 -m uvicorn api:app --host 0.0.0.0 --port 8000
-```
-
-The API will be available at:
+The detector identified activity such as:
 
 ```text
-http://127.0.0.1:8000
+Invalid user ubuntu
 ```
 
-Test the health endpoint:
+and:
 
-```bash
-curl http://127.0.0.1:8000/
+```text
+Connection reset by authenticating user root
 ```
 
-Test alerts:
+CloudDefend normalized these events and grouped them by source IP.
 
-```bash
-curl http://127.0.0.1:8000/alerts
-```
-
-Test statistics:
-
-```bash
-curl http://127.0.0.1:8000/stats
-```
+This allowed the detection engine to identify repeated authentication attempts as potential brute-force activity.
 
 ---
 
-## Security Considerations
+## Current Capabilities
 
-CloudDefend is currently a monitoring and detection platform intended for educational and development purposes.
-
-For a production deployment, additional security controls should be implemented, including:
-
-- HTTPS/TLS
-- API authentication
-- Role-based access control
-- Secure secret management
-- Network-level access restrictions
-- Database-backed alert storage
-- Centralized logging
-- Alert notification mechanisms
-- IP reputation enrichment
-- Rate limiting
-- Audit logging
-
-The dashboard should not be exposed publicly without appropriate authentication and transport security.
+- [x] SSH log collection
+- [x] SSH event parsing
+- [x] Failed authentication detection
+- [x] Invalid user detection
+- [x] Source IP extraction
+- [x] Brute-force detection
+- [x] Time-window analysis
+- [x] Severity classification
+- [x] Alert generation
+- [x] JSON alert storage
+- [x] FastAPI REST API
+- [x] Security dashboard
+- [x] systemd service
+- [x] Azure VM deployment
 
 ---
 
 ## Future Improvements
 
-Planned improvements include:
-
-- Real-time log streaming
-- Automated IP reputation lookup
+- Automatic malicious IP blocking
+- Fail2ban integration
 - GeoIP enrichment
-- Automated malicious IP blocking
+- IP reputation analysis
+- Threat intelligence integration
 - Email/Telegram/Slack notifications
-- Authentication and RBAC
+- Real-time log streaming
+- PostgreSQL database
+- Role-based dashboard access
 - HTTPS/TLS
-- Database-backed alert storage
-- Additional detection rules
 - Docker deployment
 - SIEM integration
-- Cloud security telemetry
-- MITRE ATT&CK technique mapping
-- Risk scoring
-- Historical attack analytics
+- MITRE ATT&CK mapping
+- Additional Linux security detections
+- Authentication anomaly detection
 
 ---
 
-## Learning Outcomes
+## Limitations
 
-This project provided practical experience with:
+CloudDefend currently focuses primarily on SSH authentication activity.
 
-- Linux server administration
-- Azure cloud infrastructure
-- SSH security
-- Authentication monitoring
-- Security log analysis
-- Threat detection
-- Rule-based detection engines
-- REST API development
-- FastAPI
-- Linux systemd
-- Firewall configuration
-- Cloud security monitoring
-- Git and GitHub deployment
+It is a lightweight security monitoring and threat detection prototype and is not intended to replace a full SIEM, EDR, IDS, or cloud-native security platform.
+
+Detection is currently rule-based and depends on configured thresholds and time windows.
+
+---
+
+## Security Considerations
+
+When deploying CloudDefend on a public cloud VM:
+
+- Use SSH keys instead of passwords.
+- Disable direct root login.
+- Keep the operating system updated.
+- Restrict exposed ports using Azure NSGs and UFW.
+- Avoid exposing administrative services unnecessarily.
+- Use HTTPS/TLS for production deployments.
+- Never commit private keys, passwords, API tokens, or other secrets to GitHub.
+
+---
+
+## Project Status
+
+**Functional Prototype**
+
+CloudDefend successfully demonstrates an end-to-end security monitoring workflow:
+
+```text
+Log Collection
+      ↓
+Event Parsing
+      ↓
+Detection Rules
+      ↓
+Threat Detection
+      ↓
+Alert Generation
+      ↓
+REST API
+      ↓
+Security Dashboard
+```
+
+---
+
+## Author
+
+**Aryan Singh Shaktawat**
+
+B.Tech Computer Science & Engineering  
+Cyber Security & Forensics
+
+GitHub:  
+https://github.com/aryansinghshaktawat
 
 ---
 
 ## License
 
-MIT License
+This project is licensed under the MIT License.
 ```
-
-### One important change before you push
-
-Your current project has:
-
-```text
-logs/alerts.json
-```
-
-
